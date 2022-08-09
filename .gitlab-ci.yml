@@ -1,0 +1,52 @@
+stages:
+    - build
+    - deploy-dev
+    # - deploy-prod
+
+build:
+    stage: build
+    image: node:16.3.0-alpine3.13
+    artifacts:
+        untracked: true
+    only:
+        - dev
+        # - master
+    before_script:
+        - rm -rf .env
+        - CI=false npm install --force
+        - environment=dev
+        # - if [ "$CI_COMMIT_REF_NAME" == "staging" ]; then environment="dev"; elif [ "$CI_COMMIT_REF_NAME" == "master" ]; then environment="prod"; fi
+    script:
+        - rm -rf build
+        - source .${environment}.env
+        # - echo REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL >> .env
+        - echo NEXT_PUBLIC_API_URL=https://dev-techchak-api.herokuapp.com/api/v1 >> .env
+        - echo site_bucket_name=$site_bucket_name >> .env
+        - cat .env
+        - CI=false npm run build
+
+deploy-dev:
+    stage: deploy-dev
+    image: python:3.8
+    dependencies:
+        - build
+    only:
+        - dev
+    before_script:
+        - pip3 install awscli
+        - source .dev.env
+    script:
+        - aws s3 sync out s3://${site_bucket_name}-dev/
+# deploy-prod:
+#   stage: deploy-prod
+#   image: python:3.8
+#   dependencies:
+#     - build
+#   only:
+#     - master
+#   before_script:
+#     - pip3 install awscli
+#     - source .prod.env
+#   script:
+#     - aws s3 sync build s3://${site_bucket_name}-prod/
+
